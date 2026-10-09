@@ -1,0 +1,5 @@
+---
+interface Props { name:string; caption:string; }
+const {name,caption}=Astro.props;
+---
+<figure class="diagram"><img src={`${import.meta.env.BASE_URL}/diagrams/${name}.svg`.replace(/\/+/g,'/')} alt={caption} loading="lazy" width="900" height="360"/><figcaption>{caption}</figcaption></figure>

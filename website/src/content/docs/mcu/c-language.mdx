@@ -1,0 +1,93 @@
+---
+title: C 语言、.c/.h 与执行过程
+sidebar: { order: 2 }
+---
+import { Code } from '@astrojs/starlight/components';
+import source from '../../../../../examples/multi_file/math_utils.c?raw';
+import header from '../../../../../examples/multi_file/math_utils.h?raw';
+import Figure from '../../../components/Figure.astro';
+import LabLink from '../../../components/LabLink.astro';
+
+## 学习目标与生活例子
+
+把程序想成一份精确的操作说明：变量是记录纸，条件是分岔路，循环是重复步骤，函数是一段可以复用的工序。学会读基本 C 代码，并理解 `.c` 实现、`.h` 声明和链接的关系。
+
+## 基础语法：先读懂一个小程序
+
+```c
+#include <stdint.h>                    // 引入类型声明
+static uint16_t limit(uint16_t value)  // 函数返回一个 16 位无符号数
+{
+    if (value > 1000U) {               // 条件判断，不是赋值
+        return 1000U;
+    }
+    return value;
+}
+
+int main(void)
+{
+    uint16_t samples[3] = {100, 200, 300}; // 下标是 0、1、2
+    uint32_t sum = 0;
+    for (uint8_t i = 0; i < 3; i++) {      // 初始化；继续条件；每次递增
+        sum += limit(samples[i]);
+    }
+    return (sum == 600U) ? 0 : 1;          // 电脑端测试的退出码
+}
+```
+
+`uint16_t` 表示精确 16 位的无符号整数；`float` 用于近似实数，不能当作无限精度数学；`=` 赋值而 `==` 比较；分号结束语句，大括号组成代码块。`for` 每次读取一个数组元素，`sum += x` 相当于 `sum = sum + x`。这里是电脑端演示，真实裸机 main 通常进入持续运行的循环。
+
+## 指针、结构体与状态
+
+```c
+typedef struct {
+    float target;
+    float measured;
+} MotorState;
+
+void stop(MotorState *motor)
+{
+    if (motor != 0) {
+        motor->target = 0.0f;
+    }
+}
+```
+
+`struct` 将有关数据放在一起；`MotorState *` 保存对象地址；`motor->target` 通过地址访问成员。调用 `stop(&state)` 可以修改原对象。指针不是“任意整数都能访问的万能钥匙”，空指针、越界和已经失效的地址都会带来错误。
+
+## .c 与 .h：一份接口，多处使用
+
+下面直接引用原仓库的两个文件。
+
+<Code code={header} lang="c" title="examples/multi_file/math_utils.h" />
+<Code code={source} lang="c" title="examples/multi_file/math_utils.c" />
+
+头文件中的 include guard 防止同一个编译单元重复展开声明；函数声明告诉编译器参数和返回类型。源文件包含头文件并给出函数体，编译器可检查两者是否一致。不要把普通全局变量定义随意写进会被多处包含的 `.h`；共享变量通常在 `.h` 用 `extern` 声明，在一个 `.c` 定义。
+
+## 从文本到机器指令
+
+<Figure name="compile" caption="源码经预处理、编译、汇编和链接形成可执行映像，再下载到 Flash。CPU 执行机器指令，不直接读取 C 文本。" />
+
+1. **预处理**：展开 `#include` 和宏，处理条件编译。
+2. **编译、汇编**：把语义变为目标架构的机器代码，产生目标文件。
+3. **链接**：将多个目标文件和库组合，解析函数与变量地址。
+4. **下载与启动**：将映像写入 Flash，复位后从启动流程开始执行。
+
+“undefined symbol” 常是链接阶段找不到实现；语法错误通常出现在编译阶段。只把头文件加进工程而没有加入对应 `.c`，不会自动生成函数实现。
+
+## CPU 怎样执行代码，寄存器怎样改变引脚
+
+概念上可分为取指、译码、执行、保存结果。真实 Cortex-M3 有流水线，几个阶段可以重叠；实验中的逐步模型是便于理解的抽象，不是每步恰好一个时钟周期。
+
+外设寄存器被映射到地址空间。对 GPIO 特定寄存器写入位值，会改变输出锁存器，经引脚电路输出高低电平。`volatile` 告诉编译器这类访问不能当作普通可省略内存操作，但它本身不保证多线程原子性。
+
+标准库函数把常见寄存器操作封装起来，让你先理解“使能时钟—配置引脚—写输出”，再逐步查参考手册。不是调用一次函数，电机就自动具有反馈控制。
+
+<LabLink name="cpu" label="单步观察取指与外设写入" />
+
+## 常见错误与思考题
+
+数组越界、`if (x = 1)`、整数除法丢小数、声明函数却漏加实现文件，是入门阶段常见问题。
+
+<details><summary>头文件保护能防止所有重复定义吗？</summary>不能。它只避免一个编译单元内重复展开。同一全局变量若在头文件定义并被多个 .c 包含，仍可能产生多个定义。应区分声明与定义。</details>
+<details><summary>为什么 Cortex-M3 不能直接运行电脑编译出的 exe？</summary>目标指令集、二进制格式、操作系统接口和运行环境都不同。要使用适合目标芯片的工具链与启动配置。</details>

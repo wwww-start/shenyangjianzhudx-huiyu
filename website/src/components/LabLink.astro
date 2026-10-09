@@ -1,0 +1,5 @@
+---
+interface Props { name:string; label:string; }
+const {name,label}=Astro.props;
+---
+<a class="lab-link" href={`${import.meta.env.BASE_URL}/labs/${name}/`.replace(/\/+/g,'/')}>↗ 打开独立实验：{label}</a>

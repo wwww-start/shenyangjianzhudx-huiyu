@@ -1,0 +1,78 @@
+---
+title: F107、最小系统与 Keil 工程
+sidebar: { order: 1 }
+---
+import Figure from '../../../components/Figure.astro';
+
+## 学习目标与生活例子
+
+像搭建一间实验室一样理解开发板：CPU 是工作人员，时钟是节拍，电源是基础设施，启动代码是开门准备。能说清复位后为什么会到达 main，并检查一个标准库工程的关键文件。
+
+## STM32 与 Cortex-M3
+
+STM32 是 ST 的微控制器产品家族；Cortex-M3 是 Arm 设计的处理器内核。STM32F107 属于连接型产品，包含片上 Flash、SRAM、GPIO、定时器、ADC、串口和 CAN 等外设。内核相同不代表不同芯片的引脚、外设和存储容量相同，要查**完整料号和封装**。
+
+<Figure name="board" caption="F107 学习板原创结构示意（不是实物照片、不是接线图）：标出芯片、电源、晶振、复位与调试接口的位置关系。" />
+
+## 最小系统：让芯片能可靠启动
+
+电源和地按手册连接，每个供电区域配合适的去耦；复位电路、启动配置和时钟来源明确；提供 SWD 调试接口（SWDIO、SWCLK、地及参考电压等）。晶振是否必需取决于所用功能和时钟要求，不能把某一开发板电路当作所有 STM32 的固定模板。
+
+BOOT0 等配置决定启动映射，启动文件不是负责烧录的程序。使用调试器下载后，CPU 仍要按照复位向量开始执行。
+
+## 时钟树：为什么定时器不一定等于总线频率
+
+<Figure name="clock" caption="简化时钟路径：HSI/HSE 经选择与 PLL 路径形成 SYSCLK，再经过 AHB/APB 分频；F107 的完整 PLL2/PLL3 等细节应查 RM0008。" />
+
+系统时钟经过 AHB 分频得到 HCLK，再经 APB 分频形成 PCLK1/PCLK2。对相关定时器，APB 预分频为 1 时定时器时钟等于 PCLK；不为 1 时通常是 2×PCLK。不能简单把 `SystemCoreClock` 当所有外设的时钟。
+
+原 PWM 示例调用 `RCC_GetClocksFreq` 并结合分频关系计算 TIM2 时钟。修改晶振和系统配置后，必须核对实际频率；波特率和 PWM 都依赖它。
+
+## 启动文件和工程结构
+
+| 文件/目录 | 作用 |
+|---|---|
+| `startup_stm32f10x_cl.s` | 连接型器件向量表、初始栈与复位入口 |
+| `system_stm32f10x.c` | 系统初始化和时钟相关支持 |
+| CMSIS 内核头文件 | 内核寄存器与标准接口定义 |
+| STM32F10x 标准库源文件 | GPIO、RCC、TIM 等外设函数 |
+| `User/main.c` | 组装初始化顺序与主循环 |
+| `Hardware/*.c/.h` | 板级 LED、PWM、电机等模块 |
+| `System/Delay.*` | 本项目时间基准等系统支持 |
+
+复位后通常由启动代码设置运行环境，执行系统初始化及 C 运行时准备，包括初始化有初值全局数据、清零零初始化区，然后进入 main。细节以具体启动文件和工具链为准。
+
+Keil 工程应选择对应 F107 器件；定义 `STM32F10X_CL` 和 `USE_STDPERIPH_DRIVER`；添加头文件搜索路径、所需标准库 `.c`、系统文件和唯一的正确启动文件。编译成功之后，还要检查下载设置、实际晶振与引脚接线。
+
+```c
+/* 组织方式示意：实际接口和初始化顺序见原仓库 User/main.c */
+int main(void)
+{
+    /* 1. 建立系统时间基准 */
+    /* 2. 初始化使用的外设 */
+    while (1) {
+        /* 3. 处理不阻塞的周期任务 */
+    }
+}
+```
+
+第 1 步提供调度所需时间，第 2 步让外设进入已知状态，第 3 步反复处理工作。注释不是可运行的完整工程，原仓库提供可集成模块并说明所需依赖。
+
+## STM32、ESP32 与 Arduino 怎么比较
+
+| 名称 | 它是什么 | 常见入门侧重点 |
+|---|---|---|
+| STM32 | MCU 产品家族 | 外设、实时控制、调试与工业接口 |
+| ESP32 | Espressif 的一系列 SoC，具体无线能力随型号不同 | 无线联网和嵌入式应用 |
+| Arduino | 开发板、软件工具与生态，不是一颗固定芯片 | 用统一易读接口快速原型 |
+
+有些 ESP32 或 STM32 板可使用 Arduino 框架，因此这三项不在同一个分类层级。本课采用 F107 + Keil + SPL，是为了贴合现有教材并逐步理解硬件；换平台时应迁移原理而不是机械复制寄存器名。
+
+## 常见错误与思考题
+
+常见错误包括选成 F103 启动文件、重复添加多个启动文件、漏 RCC/GPIO 库源码、时钟配置与实际晶振不一致。
+
+<details><summary>为什么 GPIO 初始化前通常先开 RCC 外设时钟？</summary>外设需要时钟才能按设计访问和运行其逻辑。标准库不会替你对所有相关模块自动开时钟；先检查 RCC 是很有效的排错顺序。</details>
+<details><summary>Keil 编译零错误，能证明电机接线正确吗？</summary>不能。编译验证语法与链接关系，实际电源、信号极性、驱动器状态和传感器方向仍需逐项验证。</details>
+
+参考：[ST STM32F107 产品资料](https://www.st.com/en/microcontrollers-microprocessors/stm32f107vc.html)、[RM0008 参考手册](https://www.st.com/resource/en/reference_manual/rm0008-stm32f101xx-stm32f102xx-stm32f103xx-stm32f105xx-and-stm32f107xx-advanced-armbased-32bit-mcus-stmicroelectronics.pdf)。

@@ -1,0 +1,81 @@
+---
+title: GPIO、中断、定时器与 PWM
+sidebar: { order: 2 }
+---
+import { Code } from '@astrojs/starlight/components';
+import gpio from '../../../../../examples/stm32_stdperiph/Hardware/GPIOModes.c?raw';
+import pwm from '../../../../../examples/stm32_stdperiph/Hardware/PWM.c?raw';
+import Figure from '../../../components/Figure.astro';
+import LabLink from '../../../components/LabLink.astro';
+
+## 学习目标与生活例子
+
+把 GPIO 想成一扇可配置的门：输入模式观察门外电平，输出模式主动改变电平；“复用”则把门交给定时器或串口管理。能区分通用/复用与推挽/开漏，并从计数理解 PWM。
+
+## GPIO 模式不是一串需要死背的缩写
+
+| 模式 | 控制来源与电路行为 | 示例 |
+|---|---|---|
+| 通用推挽 `Out_PP` | 软件输出位控制；可主动拉高、拉低 | 普通 LED、数字控制 |
+| 复用推挽 `AF_PP` | 外设信号控制；可主动拉高、拉低 | TIM PWM、UART TX |
+| 通用开漏 `Out_OD` | 软件控制拉低或释放，不主动拉高 | 需要上拉的共享信号 |
+| 复用开漏 `AF_OD` | 外设控制拉低或释放 | 常见 I²C 信号 |
+| 上拉/下拉输入 | 内部弱电阻为未驱动输入提供默认状态 | 按键输入 |
+| 浮空输入 | 没有内部上下拉 | 外部明确驱动的数字输入 |
+| 模拟输入 | 模拟通路，避免普通数字输入行为干扰 | ADC 引脚 |
+
+“通用/复用”回答谁控制，“推挽/开漏”回答怎样驱动。开漏写 1 常意味着释放；没有上拉时不能保证得到高电平。推挽输出不可相互硬顶。
+
+<Figure name="gpio" caption="GPIO 概念电路：推挽可连接到电源或地；开漏仅主动拉低，释放后由上拉电阻提供高电平。" />
+
+## 原代码逐行阅读
+
+<Code code={gpio} lang="c" title="examples/stm32_stdperiph/Hardware/GPIOModes.c" />
+
+`#include` 引入模块声明；声明 `gpio` 保存配置；`RCC_APB2PeriphClockCmd` 为 A/B/C 端口开时钟；`GPIO_StructInit` 设置默认值；`GPIO_SetBits` 预先设置输出锁存，避免配置瞬间出现错误状态。随后每组先指定引脚，再指定模式、速度并调用 `GPIO_Init` 写入硬件。
+
+PC13 配为通用推挽，PB0 上拉输入适合“按下接地”的接法，PA0 交给 TIM2 CH1。这里的 `GPIO_Speed_2MHz` 配置输出驱动速度级别，并不表示自动输出 2 MHz 波形。PC13 电流与速度限制须按手册核对。
+
+## EXTI 与 NVIC：谁发通知，谁安排处理
+
+EXTI 检测引脚边沿并提出中断请求；AFIO 配置将对应引脚映射到 EXTI 线；NVIC 管理处理器中断的使能与优先级；中断服务函数处理事件并清除相应挂起标志。中断服务不要长时间等待或阻塞打印，机械按键还需要去抖。
+
+轮询像一直看门铃灯，中断像门铃响了通知你。通知并不会自动完成任务，也不会消除重复抖动。
+
+## 定时器与 PWM 波
+
+计数器按时钟递增，经过预分频降低计数频率，达到自动重装值后重新开始。对向上计数、边沿对齐 PWM1、有效高电平的简单情况：
+
+$$f_{PWM}=\frac{f_{TIM}}{(PSC+1)(ARR+1)},\qquad D=\frac{CCR}{ARR+1}$$
+
+PWM 周期中一部分为高电平、一部分为低电平；占空比 $D=t_{high}/T$。它不是持续输出某个模拟电压。经过负载动态或滤波，才可能得到相应的平均效果。
+
+<Figure name="pwm" caption="同一周期下 25%、50%、75% 占空比的 PWM 波形。高电平幅度不随占空比改变。" />
+
+## 原 PWM 模块与关键行
+
+<Code code={pwm} lang="c" title="examples/stm32_stdperiph/Hardware/PWM.c" />
+
+| 语句组 | 作用 |
+|---|---|
+| `PWM_GetTimerClock` | 从实际时钟信息得到 TIM2 输入频率 |
+| 两次 RCC 使能 | GPIOA 与 TIM2 位于不同总线 |
+| `GPIO_Mode_AF_PP` | PA0 由 TIM2 输出比较通道接管 |
+| `Prescaler`、`Period`、`CounterMode` | 设置 PSC、ARR 与向上计数 |
+| `TIM_OCMode_PWM1`、`TIM_Pulse=0` | PWM1 模式，初始占空比为零 |
+| `TIM_OC1Init` | 配置第 1 通道，而不是整个定时器所有通道 |
+| 预装载、更新事件与计数清零 | 让缓冲配置生效，建立明确起始状态 |
+| `PWM_SetCompare` | 限制比较值后写 CCR1 |
+| `PWM_Demo_Start` | 核对时钟可得到 1 MHz 计数，再配 ARR=999 得 1 kHz |
+| `PWM_Demo_Poll` | 每 20 ms 改变比较值，主循环不必长时间阻塞 |
+
+注意原示例把 CCR 最大限制为 ARR。ARR=999 时最大占空比为 999/1000=99.9%，不是严格 100%；网页显示理想占空比端点，并单独说明这个工程差异。
+
+<LabLink name="gpio-pwm" label="GPIO 电平与 PWM 占空比" />
+
+## 常见错误与思考题
+
+把 PWM 引脚配为普通推挽却期待定时器自动输出；忘记通道映射/重映射；把 ARR 当作计数总长度；忘记清除中断挂起标志。
+
+<details><summary>若定时器时钟 72 MHz，PSC=71、ARR=999，PWM 频率多少？</summary>72 MHz ÷ 72 ÷ 1000 = 1 kHz。CCR=250 时，在本节约定下占空比 25%。先确认 TIM 时钟真是 72 MHz。</details>
+<details><summary>开漏释放时为什么需要上拉？</summary>输出晶体管关断后没有主动连接高电源。上拉建立高电平，电阻、电容和负载会影响上升沿。</details>

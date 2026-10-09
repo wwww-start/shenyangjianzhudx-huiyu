@@ -1,0 +1,48 @@
+---
+title: 从一盏灯，到一个机器人
+description: 零基础也能理解的机器人电控与人工智能课程。
+template: splash
+hero:
+  tagline: 理解电路如何听懂代码，观察控制如何改变运动，认识人工智能如何从数据中学习。
+  actions:
+    - text: 开始第一课
+      link: /shenyangjianzhudx-huiyu/mcu/foundations/
+      icon: right-arrow
+    - text: 进入互动实验室
+      link: /shenyangjianzhudx-huiyu/labs/pid/
+      variant: secondary
+---
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+import Figure from '../../components/Figure.astro';
+
+<span className="eyebrow">OPEN COURSE / 慧育 · 机器人电控</span>
+
+## 先理解，再动手
+
+这是一门面向零基础大一新生的开放课程。无需登录，无需先买开发板：先在网页读图、理解机制，再用独立实验验证直觉，最后回到 Keil 与真实硬件。
+
+<CardGrid>
+<LinkCard title="01 · 单片机基础" description="电从哪里来？CPU 怎样执行你的第一行 C 代码？" href="/shenyangjianzhudx-huiyu/mcu/foundations/" />
+<LinkCard title="02 · STM32 开发" description="以 F107、Keil 和标准库连接 GPIO、PWM、传感器与电机。" href="/shenyangjianzhudx-huiyu/stm32/platform/" />
+<LinkCard title="03 · PID 控制" description="从开环到闭环，亲手改变参数，观察误差、超调与饱和。" href="/shenyangjianzhudx-huiyu/pid/principles/" />
+<LinkCard title="04 · 人工智能" description="从一个神经元到 Transformer，再到 Agent 与工具。" href="/shenyangjianzhudx-huiyu/ai/foundations/" />
+</CardGrid>
+
+<Figure name="robot" caption="机器人是一条闭环信息链：感知环境，计算决策，驱动执行，再测量结果。" />
+
+## 推荐学习路线
+
+| 阶段 | 先回答的问题 | 动手证据 |
+|---|---|---|
+| 入门 | 电平与二进制为什么能表示信息？ | 单步观察取指、译码、执行 |
+| 外设 | 程序怎样改变引脚？ | 比较推挽、开漏和 PWM |
+| 控制 | 为什么同样的占空比不总是同样的速度？ | 调节 PID 并导出响应数据 |
+| AI | 模型如何从样本中学到关系？ | 调权重，观察神经元输出 |
+
+每次学习建议采用“读一节 → 看一张图 → 运行一个例子 → 回答一道题”。正文保持连续阅读，所有动态互动均放在独立实验页。
+
+## 教材与工程的边界
+
+原仓库的 Word、Markdown、C 示例全部保留。[原教材与学习资源](/shenyangjianzhudx-huiyu/resources/)集中提供下载、出处和视频链接。网页仿真是教学模型，参数不是实际电机辨识结果。标准库示例需要按开发板接线、时钟与型号集成，不是已经验证过的整板工程。
+
+互助，开源，共享是科学真正的精神。

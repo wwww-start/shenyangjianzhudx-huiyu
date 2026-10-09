@@ -1,0 +1,71 @@
+---
+title: 从 CNN 到 Transformer 与语言
+sidebar: { order: 2 }
+---
+import Figure from '../../../components/Figure.astro';
+import LabLink from '../../../components/LabLink.astro';
+
+## 学习目标与生活例子
+
+看图片时先找边缘再组合成物体；理解句子时联系前后词。不同网络结构为不同信息关系提供了计算方法。学习 CNN、RNN、Transformer 的主要思路，并区分词源、词义与 Token。
+
+## 三类结构
+
+| 结构 | 核心机制 | 直觉与限制 |
+|---|---|---|
+| CNN 卷积网络 | 局部连接、权重共享，逐层提取特征 | 同一种局部模式可在不同位置检测；不是天生理解物体 |
+| RNN 循环网络 | 用递归状态处理序列 | 像边读边记笔记；长程依赖与训练可能困难，LSTM/GRU 有改进 |
+| Transformer | 注意力组织位置之间的信息交流 | 依据内容加权聚合；需位置相关机制，计算与内存也有成本 |
+
+图像可以切成 patch 使用 Transformer；文字也能用卷积。结构是工具，不是数据类型的绝对禁区。
+
+## Token 与 Embedding
+
+Token 是分词器输出的基本单元，可能是词、子词、字符或字节片段，取决于具体分词方案。一个英文单词不一定是一个 Token，一个汉字也不一定固定对应一个 Token。
+
+Embedding 把离散 Token ID 映射为向量。向量不是词典释义，而是可学习数值表示；后续层会结合上下文继续更新表示。相似度反映特定模型和空间中的关系，不能直接当作“同源词证明”。
+
+## Attention：当前信息应该参考谁
+
+$$\operatorname{Attention}(Q,K,V)=\operatorname{softmax}\left(\frac{QK^\mathsf{T}}{\sqrt{d_k}}\right)V$$
+
+Q 可以理解为当前位置发出的查询，K 为其他位置用于匹配的键，V 为实际聚合的内容；三者由输入表示经过线性映射得到。点积产生匹配分数，缩放后用 softmax 转成归一化权重，再对 V 加权求和。这只是帮助理解的比喻，模型并不真的在向词语提问。
+
+<Figure name="transformer" caption="简化的解码器式语言模型流程：Token→嵌入与位置信息→因果注意力和前馈层→下一 Token 分布；残差与归一化参与各层计算。" />
+
+因果遮罩使当前位置不能看到未来 Token；多头注意力允许不同投影学习不同关系；前馈层进一步变换表示。原始 Transformer 包含编码器与解码器，而许多生成式语言模型采用解码器式结构，不能混为一谈。
+
+## 大语言模型怎样生成文字
+
+预训练常通过大量文本学习下一 Token 的条件分布；推理时给定上下文，计算分布，按解码策略选择下一个 Token，再重复。它不是简单从数据库复制整段答案，也不等于每次回答都更新模型权重。模型可产生流畅却错误的内容，需要可核查来源与任务评价。
+
+## 同源词：act、action、active
+
+用户熟悉的 `act`、`action`、`active` 可放在一个学习词族中，共同追溯到拉丁语 *agere* 及相关形式。`action`、`active` 经各自历史借入英语，**不能把记忆用的 act + 后缀拆分当作完整历史演变路线**。
+
+| 观察角度 | 回答的问题 |
+|---|---|
+| 词源 | 历史上来自哪里，有什么亲缘关系？ |
+| 形态拆分 | 为记忆词族，可以识别哪些前后缀和形式？ |
+| 语义相近 | 在某种语境下意思是否接近？ |
+| 模型分词 | 某个具体分词器怎样编码字符串？ |
+
+网页演示点击词卡展示词义、共享来源和记忆拆分，不虚构词向量坐标，也不宣称 `action` 必被模型切成 `act` 与 `ion`。
+
+```javascript
+const family = { root: 'act', words: ['act', 'action', 'active'] };
+const selected = family.words[1]; // 选择 action
+```
+
+第 1 行存放人工整理的教学关系，第 2 行按数组下标取出词卡。它不是训练出来的词源识别器；真正自动分析需要数据、规则或模型，还要校核来源。
+
+<LabLink name="ai" label="点击 act 词族，比较词源与语义" />
+
+## 常见错误与思考题
+
+“字形像就同源”“词向量近就同源”“注意力高就证明因果重要”都不成立。可解释性需要专门方法和验证。
+
+<details><summary>action 和 active 同源，是否在任何句子中都能互换？</summary>不能。词性、搭配和词义不同。历史来源相近不等于现代使用相同。</details>
+<details><summary>模型看到新问题时，一定重新训练吗？</summary>普通推理通常只在上下文中计算，权重不改变。工具检索、上下文学习和真正的参数训练是不同机制。</details>
+
+参考：[Transformer 原论文](https://arxiv.org/abs/1706.03762)、[action 词源](https://www.merriam-webster.com/dictionary/action)、[active 词源](https://www.merriam-webster.com/dictionary/active)。
