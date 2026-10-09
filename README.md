@@ -3,7 +3,7 @@
 这是面向机器人电控新成员的中文教学与自学资料。以 Keil MDK、STM32F107 和 STM32F10x 标准外设库为实践基础，从电子硬件与 C 语言开始，逐步学习 GPIO、定时器、PWM、电机驱动与 PID，再认识计算机、网络、Linux 和人工智能。
 
 AI 部分讲原理、历史、术语与应用，不安排模型训练或小模型部署。本文VPN只做讲解科学原理。
-https://wwww-start.github.io/shenyangjianzhudx-huiyu/网页版
+https://wwww-start.github.io/shenyangjianzhudx-huiyu
 
 ## 从哪里开始
 
