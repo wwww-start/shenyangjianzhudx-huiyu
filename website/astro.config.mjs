@@ -10,7 +10,7 @@ export default defineConfig({
   trailingSlash: 'always',
   output: 'static',
   integrations: [starlight({
-    title: '慧育 · 机器人电控',
+    title: '慧鱼实验室',
     description: '从第一行 C 代码，到理解机器人与人工智能。面向零基础新生的开放教材。',
     defaultLocale: 'root',
     locales: { root: { label: '简体中文', lang: 'zh-CN' } },

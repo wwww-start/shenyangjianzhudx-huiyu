@@ -1,4 +1,4 @@
-# 慧育 · 机器人电控互动教材
+# 慧鱼实验室 · 机器人电控互动教材
 
 公开网址：**https://wwww-start.github.io/shenyangjianzhudx-huiyu/**
 
