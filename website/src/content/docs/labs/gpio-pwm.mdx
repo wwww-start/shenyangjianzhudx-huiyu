@@ -4,7 +4,16 @@ sidebar: { order: 3 }
 tableOfContents: false
 ---
 import { GPIOLab } from '../../../components/ConceptLabs';
+import BreathingLab from '../../../components/BreathingLab';
 
 [← 回到 GPIO 与 PWM 正文](/shenyangjianzhudx-huiyu/stm32/gpio-pwm/)
 
 <GPIOLab client:load />
+
+<BreathingLab client:load />
+
+## 原理与原仓库呼吸灯代码
+
+在理想高电平 3.3 V、低电平 0 V 的情况下，周期平均电压为 $\bar V=3.3D$，D 取 0～1。RC 滤波满足 $\tau\frac{dv}{dt}+v=v_{PWM}$，其中 $\tau=RC$。上图按每段恒定输入的指数解计算周期稳态波形，并非手画数据。
+
+原仓库 `PWM_Demo_Start()` 建立 1 kHz PWM；`PWM_Demo_Poll()` 每 20 ms 将比较值增加或减少 10，从 0 到 999 后折返。完整代码和逐段解释见[正文](/shenyangjianzhudx-huiyu/stm32/gpio-pwm/#原-pwm-模块与关键行)。网页一轮呼吸默认 4 秒，与该示例的大致节奏一致；网页理想端点为 100%，原模块最大为 99.9%。

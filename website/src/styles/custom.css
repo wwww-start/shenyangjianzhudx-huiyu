@@ -4,3 +4,4 @@
 .lab .control-grid > *, .lab .toolbar > *, .lab .metrics > *, .lab .flow-steps > *, .lab .word-cards > * {margin-top:0;}
 
 .chart-legend{display:flex;justify-content:center;gap:1.5rem;font-size:.85rem}.chart-legend span:first-child{color:#6177dd}.chart-legend span:last-child{color:#17a68a}.chart-legend > *{margin-top:0}.recharts-label{fill:var(--sl-color-gray-2)}
+.breathing-display{display:flex;align-items:center;gap:2rem;margin-block:1.5rem}.breathing-display>*{margin-top:0}.breathing-led{width:100px;height:100px;border-radius:50%;background:#182e32;border:3px solid #698685;flex-shrink:0;display:grid;place-items:center}.breathing-led>div{width:82px;height:82px;border-radius:50%;margin:0}@media(max-width:600px){.breathing-display{gap:1rem}.breathing-led{width:76px;height:76px}.breathing-led>div{width:60px;height:60px}}
