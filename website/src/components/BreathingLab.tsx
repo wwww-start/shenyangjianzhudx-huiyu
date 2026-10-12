@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
-import { breathingDuty, filteredPWM } from '../lib/breathing.mjs';
+import { breathingDuty, filteredPWM, risingTime } from '../lib/breathing.mjs';
 import { pwmPath } from '../lib/pwm.mjs';
+import BreathingOverview from './BreathingOverview';
 
 export default function BreathingLab() {
   const [time, setTime] = useState(0);
   const [period, setPeriod] = useState(4);
   const [playing, setPlaying] = useState(false);
   const [tau, setTau] = useState(.01);
+  const [envelope, setEnvelope] = useState('smooth');
   useEffect(() => {
     if (!playing) return;
     let last = performance.now();
@@ -18,7 +20,7 @@ export default function BreathingLab() {
     }, 20);
     return () => window.clearInterval(timer);
   }, [playing, period]);
-  const duty = breathingDuty(time, period);
+  const duty = breathingDuty(time, period, envelope);
   const signal = filteredPWM(duty, tau);
   const averageY = 140 - 90 * duty / 100;
   const filteredPath = signal.rows.map((r, i) => `${i ? 'L' : 'M'}${20 + r.time / .004 * 640} ${140 - r.voltage / 3.3 * 90}`).join(' ');
@@ -29,16 +31,20 @@ export default function BreathingLab() {
     <div className="toolbar">
       <button onClick={() => setPlaying(p => !p)}>{playing ? '暂停呼吸灯' : '播放呼吸灯'}</button>
       <button onClick={() => { setTime(0); setPlaying(true); }}>重新播放呼吸灯</button>
-      <button onClick={() => { setPlaying(false); setTime(0); setPeriod(4); setTau(.01); }}>重置呼吸灯</button>
+      <button onClick={() => { setPlaying(false); setTime(0); setPeriod(4); setTau(.01); setEnvelope('smooth'); }}>重置呼吸灯</button>
       <label>一轮呼吸时间 <select aria-label="一轮呼吸时间" value={period} onChange={e => { setTime(0); setPeriod(Number(e.target.value)); }}><option value={2}>2 秒</option><option value={4}>4 秒</option><option value={8}>8 秒</option></select></label>
+      <label>变化方式 <select aria-label="呼吸变化方式" value={envelope} onChange={e => { setTime(0); setEnvelope(e.target.value); }}><option value="smooth">平滑呼吸（余弦）</option><option value="linear">原代码线性渐变（三角）</option></select></label>
     </div>
+    <BreathingOverview time={time} period={period} envelope={envelope}/>
+    <label>查看一轮中的时刻 <output>{time.toFixed(2)} s</output><input aria-label="呼吸时间游标" type="range" min="0" max={period} step=".01" value={time} onChange={e => { setPlaying(false); setTime(Number(e.target.value)); }}/></label>
     <div className="breathing-display">
       <div className="breathing-led" role="img" aria-label={`模拟 LED，平均亮度比例约 ${duty.toFixed(1)}%`}>
         <div style={{ background: '#34d399', opacity: duty / 100, boxShadow: `0 0 ${15 + 45 * duty / 100}px ${10 * duty / 100}px #34d399` }} />
       </div>
       <div><strong>{duty.toFixed(1)}% 占空比</strong><p>理想平均电压：{signal.average.toFixed(3)} V<br/>LED 平均电流约为：{duty.toFixed(1)}% × 导通电流</p></div>
     </div>
-    <label>手动设置占空比 <output>{duty.toFixed(1)}%</output><input aria-label="呼吸灯占空比" type="range" min="0" max="100" step="1" value={Math.round(duty)} onChange={e => { setPlaying(false); setTime(Number(e.target.value) / 100 * period / 2); }} /></label>
+    <label>手动设置占空比 <output>{duty.toFixed(1)}%</output><input aria-label="呼吸灯占空比" type="range" min="0" max="100" step="1" value={Math.round(duty)} onChange={e => { setPlaying(false); setTime(risingTime(Number(e.target.value),period,envelope)); }} /></label>
+    <h3>放大当前时刻：PWM 与滤波电压</h3>
     <svg viewBox="0 0 700 200" role="img" aria-label="PWM 快速波形、理想平均值与 RC 滤波电压">
       <path d="M20 30V160H680" stroke="#8a9bb1" fill="none" />
       <path d={pwmPath(duty)} stroke="#6177dd" strokeWidth="2" fill="none" />

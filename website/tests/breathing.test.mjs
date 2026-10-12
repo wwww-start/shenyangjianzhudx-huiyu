@@ -1,10 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { breathingDuty, filteredPWM } from '../src/lib/breathing.mjs';
+import { breathingDuty, filteredPWM, risingTime } from '../src/lib/breathing.mjs';
 
 test('呼吸包络四秒内由暗到亮再到暗，跨周期连续', () => {
   assert.deepEqual([0,1,2,3,4].map(t => breathingDuty(t)), [0,50,100,50,0]);
   assert.equal(breathingDuty(5,4),50);
+});
+test('平滑呼吸端点和对称性正确，手动占空比能反算对应时刻', () => {
+  for(const period of [2,4,8]) {
+    assert.equal(breathingDuty(0,period,'smooth'),0);
+    assert.equal(breathingDuty(period/2,period,'smooth'),100);
+    assert.equal(breathingDuty(period,period,'smooth'),0);
+    assert.ok(Math.abs(breathingDuty(period/4,period,'smooth')-50)<1e-10);
+    for(const envelope of ['smooth','linear']) for(const value of [0,1,25,50,75,99,100]) {
+      const t=risingTime(value,period,envelope);
+      assert.ok(Math.abs(breathingDuty(t,period,envelope)-value)<1e-10);
+      assert.ok(Math.abs(breathingDuty(period-t,period,envelope)-value)<1e-10);
+    }
+  }
 });
 test('平均电压按占空比计算，端点无纹波', () => {
   assert.equal(filteredPWM(50).average,1.65);
