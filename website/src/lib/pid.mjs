@@ -1,11 +1,14 @@
 /** Deterministic teaching model. No hardware or network access. */
-export const defaults = {kp:.025,ki:.04,kd:.001,target:60,dt:.01,tau:.03,mode:'position',antiWindup:true};
+export const defaults = {kp:.025,ki:.04,kd:.001,target:60,dt:.01,tau:.03,mode:'position',antiWindup:true,gainChange:true};
+// Browser teaching preset isolates Ki; defaults above retain the original Python trace.
+export const teachingDefaults = {...defaults,kp:.01,ki:.02,kd:0,gainChange:false};
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 export function simulate(parameters=defaults) {
   const p={...defaults,...parameters};
   for(const key of ['kp','ki','kd','target','dt','tau']) if(!Number.isFinite(p[key])||p[key]<0) throw new RangeError(key);
   if(p.dt<=0||p.dt>.02||p.dt<.001||p.target>120||p.kp>.2||p.ki>.3||p.kd>.02||p.tau>1) throw new RangeError('simulation bounds');
   if(!['position','incremental'].includes(p.mode)) throw new RangeError('mode');
+  if(typeof p.gainChange!=='boolean'||typeof p.antiWindup!=='boolean') throw new RangeError('switches');
   let speed=0,previous=0,i=0,d=0,oldP=0,oldI=0,oldD=0,raw=0;
   const rows=[];
   for(let k=0;k<Math.round(8/p.dt);k++) {
@@ -22,18 +25,20 @@ export function simulate(parameters=defaults) {
     const output=clamp(raw,0,1);
     rows.push({t,target,speed,output,error,p:proportional,i,d,raw,delta});
     oldP=proportional; oldI=i; oldD=d; previous=speed;
-    const gain=t>=4-1e-10?90:100;
+    const gain=p.gainChange&&t>=4-1e-10?90:100;
     speed+=p.dt*(gain*output-speed)/.25;
   }
   return rows;
 }
-export function metrics(rows,target) {
+export function metrics(rows,target,eventTime=4) {
   const active=rows.filter(r=>r.t>=.5);
   const peak=Math.max(0,...active.map(r=>r.speed));
-  // Settling time refers to the post-gain-change segment. Require 0.5 s observed dwell.
-  let lastOutside=3.99;
-  for(const r of rows) if(r.t>=4&&Math.abs(r.speed-target)>Math.max(.02*Math.abs(target),.01)) lastOutside=r.t;
-  const candidate=rows.find(r=>r.t>lastOutside&&r.t>=4)?.t;
+  const peakRow=active.reduce((best,r)=>r.speed>best.speed?r:best,active[0]??{t:0,speed:0});
+  // A finite observation criterion, not proof of asymptotic settling.
+  let lastOutside=eventTime-1e-10;
+  for(const r of rows) if(r.t>=eventTime&&Math.abs(r.speed-target)>Math.max(.02*Math.abs(target),.01)) lastOutside=r.t;
+  const candidate=rows.find(r=>r.t>lastOutside&&r.t>=eventTime)?.t;
   return {error:rows.at(-1)?.error??0,overshoot:target>0?Math.max(0,(peak-target)/target*100):null,
-    settling:candidate!==undefined&&rows.at(-1).t-candidate>=.5?candidate-4:null};
+    peak,peakTime:peakRow.t,
+    settling:candidate!==undefined&&rows.at(-1).t-candidate>=.5?candidate-eventTime:null};
 }
